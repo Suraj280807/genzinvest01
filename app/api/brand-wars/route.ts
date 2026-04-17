@@ -114,9 +114,9 @@ const BATTLES = [
 // ─── Fetch live 52-week % return from Yahoo Finance ─────────────────────────
 async function getLiveReturn(symbol: string): Promise<{ return: number; price: number; live: boolean }> {
     try {
-        const quote = await yahooFinance.quote(symbol, {
+        const quote = await (yahooFinance.quote(symbol, {
             fields: ['regularMarketPrice', 'fiftyTwoWeekChangePercent'],
-        });
+        }) as any);
 
         const price = quote?.regularMarketPrice ?? 0;
         // Yahoo gives this as a decimal ratio e.g. 0.25 = +25%
