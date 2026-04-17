@@ -1,0 +1,181 @@
+@import "tailwindcss";
+
+:root {
+  /* GenZ Theme Colors */
+  --background: #050505;
+  --foreground: #e0e0e0;
+
+  --theme-primary: #CCFF00;
+  /* Neon Lime */
+  --theme-secondary: #9D00FF;
+  /* Electric Purple */
+  --theme-accent: #00FFFF;
+  /* Cyan */
+  --theme-surface: #121212;
+  --theme-surface-highlight: #1E1E1E;
+}
+
+:root.light {
+  --background: #f1f5f9;
+  /* Softer Light Slate Blue Background */
+  --foreground: #0f172a;
+  /* Very Dark Slate for sharp text contrast */
+
+  --theme-primary: #0284c7;
+  /* Stronger Primary Blue */
+  --theme-secondary: #6366f1;
+  /* Indigo */
+  --theme-accent: #0ea5e9;
+  /* Sky Blue */
+
+  --theme-surface: #ffffff;
+  /* Pure white still works best for card backgrounds on slate */
+  --theme-surface-highlight: #e2e8f0;
+  /* Darker Slate for highlights/borders */
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--theme-primary);
+  --color-secondary: var(--theme-secondary);
+  --color-accent: var(--theme-accent);
+  --color-surface: var(--theme-surface);
+  --color-surface-highlight: var(--theme-surface-highlight);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-orbitron);
+}
+
+@keyframes floating {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-20px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  overflow-x: hidden;
+  font-family: var(--font-sans);
+}
+
+/* Glassmorphism Utilities */
+.glass {
+  background: color-mix(in srgb, var(--theme-surface) 50%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.glass-card {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--foreground) 5%, transparent) 0%, color-mix(in srgb, var(--foreground) 1%, transparent) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid color-mix(in srgb, var(--theme-surface-highlight) 50%, transparent);
+  box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.15);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 20px 40px -10px color-mix(in srgb, var(--theme-primary) 20%, transparent);
+  border-color: color-mix(in srgb, var(--theme-primary) 30%, transparent);
+}
+
+/* Gradient Text Utilities */
+.text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(90deg, var(--theme-primary), var(--theme-accent));
+}
+
+.text-gradient-secondary {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(90deg, var(--theme-secondary), var(--theme-accent));
+}
+
+/* 3D Flip Utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* MARQUEE CAROUSEL EXTENSIONS */
+
+.marquee-wrapper {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 2rem 0;
+  mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.scroll-left {
+  animation: scrollLeft 30s linear infinite;
+}
+
+.scroll-right {
+  animation: scrollRight 30s linear infinite;
+}
+
+@keyframes scrollLeft {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); } 
+}
+
+@keyframes scrollRight {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+
+.marquee-wrapper:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+.marquee-wrapper .marquee-card {
+  transition: opacity 0.4s ease, filter 0.4s ease, transform 0.4s ease;
+}
+
+.marquee-wrapper:hover .marquee-card {
+  opacity: 0.6;
+  filter: blur(3px) brightness(1.2);
+}
+
+.marquee-wrapper .marquee-card:hover {
+  opacity: 1;
+  filter: blur(0) brightness(1);
+  transform: scale(1.03);
+  z-index: 10;
+}
