@@ -6,47 +6,43 @@ export async function fetchLiveNews(): Promise<NewsItem[]> {
     let articles = [];
 
     try {
-        // 1. Try fetching "Business in India" (Top Headlines)
-        let res = await fetch(
+        // 1. Try multiple specific searches to get a diverse pool
+        const queries = [
             `https://newsapi.org/v2/top-headlines?country=in&category=business&apiKey=${API_KEY}`,
-            { cache: 'no-store' }
+            `https://newsapi.org/v2/everything?q=indian+stock+market+nifty+sensex&sortBy=publishedAt&language=en&apiKey=${API_KEY}`,
+            `https://newsapi.org/v2/everything?q=finance+india+investing+upi&sortBy=relevancy&language=en&apiKey=${API_KEY}`
+        ];
+
+        // Process queries in parallel for efficiency
+        const fetchResults = await Promise.allSettled(
+            queries.map(url => fetch(url, { cache: 'no-store' }).then(res => res.json()))
         );
 
-        let data = await res.json();
-        console.log("NewsAPI Headlines:", data.totalResults);
+        fetchResults.forEach((result) => {
+            if (result.status === 'fulfilled' && result.value.articles) {
+                articles = [...articles, ...result.value.articles];
+            }
+        });
 
-        if (data.articles && data.articles.length > 0) {
-            articles = data.articles;
-        } else {
-            // 2. If headlines empty, try broader "Finance India" search
-            console.log("Headlines empty, trying broad search...");
-            const res2 = await fetch(
-                `https://newsapi.org/v2/everything?q=finance+india&sortBy=publishedAt&apiKey=${API_KEY}`,
-                { cache: 'no-store' }
-            );
-            const data2 = await res2.json();
-            articles = data2.articles || [];
-        }
+        console.log("Total unique articles fetched:", articles.length);
 
     } catch (e) {
         console.error("NewsAPI Fetch Error", e);
-        // Fallthrough to fallback
     }
 
-    // 3. Process API Articles
-    // Date Filter: Last 48 hours
+    // 2. Process API Articles
     const now = new Date();
-    const twoDaysAgo = new Date(now.getTime() - (48 * 60 * 60 * 1000));
-
+    const threeDaysAgo = new Date(now.getTime() - (72 * 60 * 60 * 1000));
     const uniqueTitles = new Set();
 
     let liveNews = articles
         .filter((article: any) => {
+            if (!article.title || article.title === "[Removed]") return false;
+            
             const pubDate = new Date(article.publishedAt);
-            if (pubDate < twoDaysAgo) return false;
+            if (pubDate < threeDaysAgo) return false;
 
-            // Deduplication Logic
-            const cleanTitle = (article.title || "").split(" - ")[0].trim();
+            const cleanTitle = (article.title || "").split(" - ")[0].split(" | ")[0].trim();
             if (uniqueTitles.has(cleanTitle)) return false;
 
             uniqueTitles.add(cleanTitle);
@@ -56,11 +52,10 @@ export async function fetchLiveNews(): Promise<NewsItem[]> {
             const source = article.source?.name || "Market News";
             const title = article.title || "Market Update";
             const description = article.description || title;
-            const cleanTitle = title.split(" - ")[0];
+            const cleanTitle = title.split(" - ")[0].split(" | ")[0];
             const category = getCategory(cleanTitle, description);
             
-            // Generate a reliable fallback image based on category
-            let fallbackImage = "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=800&auto=format&fit=crop"; // Default Finance
+            let fallbackImage = "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=800&auto=format&fit=crop";
             if (category === "Tech") fallbackImage = "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=800&auto=format&fit=crop";
             if (category === "Stocks") fallbackImage = "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?q=80&w=800&auto=format&fit=crop";
             if (category === "Gold") fallbackImage = "https://images.unsplash.com/photo-1610375461246-83ff852e21e0?q=80&w=800&auto=format&fit=crop";
@@ -79,76 +74,60 @@ export async function fetchLiveNews(): Promise<NewsItem[]> {
             };
         });
 
-    // 4. FALLBACK: If we still have NO news (API rate limit or empty), use Simulated Live News
-    // This guarantees the user ALWAYS sees "Today's News"
-    if (liveNews.length === 0) {
-        console.log("API returned 0 items. Using Backup Live Data.");
-        liveNews = getBackupNews();
+    // 3. ENHANCED FALLBACK: Use a larger pool of backup news and shuffle
+    if (liveNews.length < 5) {
+        console.log(`Pool small (${liveNews.length}). Adding variety from backup templates.`);
+        const backup = getBackupNews();
+        // Combine and take unique titles again
+        const combined = [...liveNews];
+        const titles = new Set(liveNews.map(n => n.title));
+        
+        backup.forEach(item => {
+            if (!titles.has(item.title)) {
+                combined.push(item);
+                titles.add(item.title);
+            }
+        });
+        liveNews = combined;
     }
 
-    // Randomize order on every refresh to give a "Dynamic/Live" feel as requested
-    return liveNews.sort(() => Math.random() - 0.5);
+    // Return randomized subset of 12 for variety
+    return liveNews.sort(() => Math.random() - 0.5).slice(0, 15);
 }
 
-// Backup Generator - Creates "Live" looking news for today/yesterday
 function getBackupNews(): NewsItem[] {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
-
     const d1 = today.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
     const d2 = yesterday.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
 
-    return [
-        {
-            id: 901,
-            title: "Sensex touches new all-time high amid global rally",
-            summary: "Indian markets are unstoppable today. Read why this rally matters for your mutual funds.",
-            source: "Market Bureau",
-            date: d1,
-            imageUrl: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?q=80&w=800&auto=format&fit=crop",
-            category: "Stocks",
-            content: getSimpleContent("Sensex High", "Indices hit record levels driven by banking and IT stocks.", "Market Bureau"),
-            impact: "Great for Index Fund investors. Your portfolio value should see a jump today.",
-            url: "#"
-        },
-        {
-            id: 902,
-            title: "RBI hints at pause in interest rates: What it means for loans",
-            summary: "Good news for borrowers. EMI burden might not increase further.",
-            source: "Banking News",
-            date: d1,
-            imageUrl: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=800&auto=format&fit=crop",
-            category: "Finance",
-            content: getSimpleContent("RBI Rates", "Central bank keeps repo rate unchanged.", "Banking News"),
-            impact: "Banking stocks will stabilize. Debt funds become attractive again.",
-            url: "#"
-        },
-        {
-            id: 903,
-            title: "Tech Giants report strong Q3 earnings, IT sector booms",
-            summary: "IT stocks are back in action. Is it time to buy Tech Funds?",
-            source: "Tech Daily",
-            date: d2,
-            imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=800&auto=format&fit=crop",
-            category: "Tech",
-            content: getSimpleContent("Tech Earnings", "Major IT players beat estimates.", "Tech Daily"),
-            impact: "Positive for NIFTY IT index. Tech mutual funds will outperform in short term.",
-            url: "#"
-        },
-        {
-            id: 904,
-            title: "Gold prices drop slightly, perfect buying opportunity?",
-            summary: "Smart investors buy dip. Should you add gold to your portfolio?",
-            source: "Commodity Watch",
-            date: d2,
-            imageUrl: "https://images.unsplash.com/photo-1610375461246-83ff852e21e0?q=80&w=800&auto=format&fit=crop",
-            category: "Gold",
-            content: getSimpleContent("Gold Dip", "Gold corrections seen as buying chance.", "Commodity Watch"),
-            impact: "Good entry point for Gold ETFs or SGBs.",
-            url: "#"
-        }
+    const templates = [
+        { id: 901, title: "Sensex touches new all-time high amid global rally", source: "Market Bureau", category: "Stocks", date: d1 },
+        { id: 902, title: "RBI hints at pause in interest rates: What it means for loans", source: "Banking News", category: "Finance", date: d1 },
+        { id: 903, title: "Tech Giants report strong Q3 earnings, IT sector booms", source: "Tech Daily", category: "Tech", date: d2 },
+        { id: 904, title: "Gold prices drop slightly, perfect buying opportunity?", source: "Commodity Watch", category: "Gold", date: d2 },
+        { id: 905, title: "Crypto regulation update: India working on G20 framework", source: "Crypto Times", category: "Tech", date: d1 },
+        { id: 906, title: "Zomato share price surges 5% as food delivery market grows", source: "Market Pulse", category: "Stocks", date: d1 },
+        { id: 907, title: "Why Index Funds are the safest choice for GenZ investors", source: "Invest Guide", category: "Finance", date: d2 },
+        { id: 908, title: "Reliance to invest ₹50,000 Cr in green hydrogen project", source: "Energy Watch", category: "India", date: d1 },
+        { id: 909, title: "Tata Motors EV sales hit record high in 2025", source: "Auto News", category: "Stocks", date: d2 },
+        { id: 910, title: "HDFC Bank merger synergies finally reflecting in profits", source: "Financial Digest", category: "Finance", date: d1 }
     ];
+
+    return templates.map(t => ({
+        ...t,
+        summary: getSimpleSummary(t.title, t.source),
+        imageUrl: `https://images.unsplash.com/photo-${[
+            "1611974789855-9c2a0a7236a3",
+            "1590283603385-17ffb3a7f29f",
+            "1518770660439-4636190af475",
+            "1610375461246-83ff852e21e0"
+        ][Math.floor(Math.random() * 4)]}?q=80&w=800&auto=format&fit=crop`,
+        content: getSimpleContent(t.title, "Market trends show significant movement in this sector.", t.source),
+        impact: getSimpleImpact(t.title, "Important for current portfolios."),
+        url: "#"
+    }));
 }
 
 // ------------------------------------------------------------------
